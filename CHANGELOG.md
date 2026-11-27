@@ -1,5 +1,13 @@
 ## Unreleased
 
+- Preserve mixed-version compatibility with protocol-9 clients and servers. Negotiate unknown-count
+  display support on an optional capability channel; older clients receive their legacy item total
+  when recipe history is missing, instead of an unsupported negative count.
+- Track "in machine" output counts per recipe on the server, including partial returns and large batches.
+  Identical returned outputs are credited in dispatch order because AE2 does not identify their source recipe.
+- Save recipe output tracking with the crafting CPU so counts survive restarts and chunk reloads.
+  Jobs without saved tracking show unknown recipe counts until their untracked outputs return.
+- Use recipe-specific "in machine" counts in client tooltips and status colours as well as cards.
 - Fix recipe cards and tooltips sharing "to do" counts when multiple recipes produce the same item.
   Counts now use each recipe's remaining runs and output amounts; only a client update is needed.
 - Advertise Lattice as optional for clients in Forge's server compatibility display.

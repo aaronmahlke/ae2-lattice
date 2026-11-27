@@ -10,6 +10,7 @@ import appeng.crafting.execution.ExecutingCraftingJob;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import dev.ae2lattice.Lattice;
 import dev.ae2lattice.server.LatticeTracker;
+import net.minecraft.nbt.CompoundTag;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -17,6 +18,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Read-only observation of the crafting CPU. Never changes what AE2 does:
@@ -30,6 +32,24 @@ public abstract class CraftingCpuLogicMixin {
 
     @Shadow
     private ExecutingCraftingJob job;
+
+    @Inject(method = "writeToNBT", at = @At("RETURN"))
+    private void ae2lattice$saveTracking(CompoundTag data, CallbackInfo ci) {
+        try {
+            LatticeTracker.save(cluster, data);
+        } catch (Throwable t) {
+            Lattice.LOG.warn("Lattice: failed to save recipe output tracking", t);
+        }
+    }
+
+    @Inject(method = "readFromNBT", at = @At("RETURN"))
+    private void ae2lattice$loadTracking(CompoundTag data, CallbackInfo ci) {
+        try {
+            LatticeTracker.load(cluster, data);
+        } catch (Throwable t) {
+            Lattice.LOG.warn("Lattice: failed to restore recipe output tracking", t);
+        }
+    }
 
     @Redirect(method = "executeCrafting", at = @At(value = "INVOKE",
             target = "Lappeng/api/networking/crafting/ICraftingProvider;pushPattern(Lappeng/api/crafting/IPatternDetails;[Lappeng/api/stacks/KeyCounter;)Z"))

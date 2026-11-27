@@ -58,7 +58,7 @@ final class SnapshotBuilder {
 
         var tasks = ja.ae2lattice$getTasks();
         for (var d : tasks.keySet()) jt.track(d);
-        recoverUnseenSteps(cpu, jt);
+        jt.reconcile(ja.ae2lattice$getWaitingFor().list);
 
         var d = new SnapshotData();
         d.hasJob = true;
@@ -90,11 +90,10 @@ final class SnapshotBuilder {
             var tp = tasks.get(pt.details);
             long remainingRuns = tp == null ? 0 : ((TaskProgressAccessor) tp).ae2lattice$getValue();
 
-            // AE2's own bookkeeping: how much of this step's output is currently out in machines.
+            // Per-pattern dispatch/return accounting; never copy the shared item total onto every recipe.
             var primary = pt.details.getPrimaryOutput();
-            long inMachines = primary == null ? 0 : logic.getWaitingFor(primary.what());
-            if (inMachines <= 0) {
-                pt.inflight.clear(); // nothing can be in flight; drop stale attribution data
+            long inMachines = jt.inMachines(pt);
+            if (inMachines == 0) {
                 pt.lastOutputTick = now; // the "no output since" clock only runs while something is out
             }
 
@@ -104,7 +103,7 @@ final class SnapshotBuilder {
             }
 
             // Which CPU does AE2 hand this item's outputs to next? (its own order: first CPU still waiting for it)
-            var servedBy = primary == null || inMachines <= 0 ? null : firstWaitingCpu(cpu, primary.what());
+            var servedBy = primary == null || inMachines == 0 ? null : firstWaitingCpu(cpu, primary.what());
             boolean otherCpuFirst = servedBy != null && servedBy != cpu;
 
             // Ask each machine about itself. Nothing here is estimated.
@@ -120,25 +119,26 @@ final class SnapshotBuilder {
                 var target = targetOf(pt, r);
                 // The machine may be running exactly this recipe - but if AE2 gives the result to another CPU
                 // first, it's not working for *this* CPU.
-                if (otherCpuFirst && target != SnapshotData.Target.OTHER) target = SnapshotData.Target.OTHER;
+                if (inMachines == 0 || otherCpuFirst) target = SnapshotData.Target.OTHER;
                 var busyWith = ItemStack.EMPTY;
                 if (target == SnapshotData.Target.OTHER) {
                     if (!r.making().isEmpty()) busyWith = new ItemStack(r.making().iterator().next());
                     else if (r.consuming() != null) busyWith = new ItemStack(r.consuming());
                 }
                 // Slot contents only for steps that still have work (keeps packets small on big jobs).
-                var inv = (inMachines > 0 || remainingRuns > 0)
+                var inv = (inMachines != 0 || remainingRuns > 0)
                         ? InventoryReader.read(server, m.dim, m.pos) : List.<SnapshotData.InvGroup>of();
                 machines.add(new MachineInfo(m.pos, m.dim.location(), m.icon, m.name, state,
                         r.progress(), r.maxProgress(), r.reason(), target, busyWith, inv,
-                        (inMachines > 0 || remainingRuns > 0) ? r.recipe() : List.<SnapshotData.InvGroup>of(),
+                        (inMachines != 0 || remainingRuns > 0) ? r.recipe() : List.<SnapshotData.InvGroup>of(),
                         r.recipeId()));
             }
 
             long since = inMachines > 0 ? now - pt.lastOutputTick : 0;
             d.states.add(new PatternState(pt.id, remainingRuns, inMachines,
                     (int) Math.min(Integer.MAX_VALUE, since), machines,
-                    otherCpuFirst ? cpuName(servedBy) : null));
+                    otherCpuFirst ? cpuName(servedBy) : null)
+                    .forClient(sub.supportsUnknownCounts, primary == null ? 0 : logic.getWaitingFor(primary.what())));
 
             for (var o : pt.details.getOutputs()) if (o != null) keys.add(o.what());
             for (var in : pt.details.getInputs()) {
@@ -215,33 +215,6 @@ final class SnapshotBuilder {
             ins.add(new GenericStack(poss[0].what(), poss[0].amount() * in.getMultiplier()));
         }
         return new PatternInfo(pt.id, outs, ins);
-    }
-
-    /**
-     * Steps whose runs were all handed out before we started watching (e.g. after a restart) are no longer in
-     * AE2's task list and were never seen being pushed. But if AE2 is still waiting for their output, they're
-     * clearly part of this job - ask AE2 which pattern makes that item.
-     */
-    private static void recoverUnseenSteps(CraftingCPUCluster cpu, JobTrack jt) {
-        var waiting = new java.util.HashSet<AEKey>();
-        cpu.craftingLogic.getAllWaitingFor(waiting);
-        if (waiting.isEmpty()) return;
-        var grid = cpu.getGrid();
-        if (grid == null || !(grid.getCraftingService() instanceof CraftingService cs)) return;
-        for (var key : waiting) {
-            boolean known = false;
-            for (var pt : jt.patterns.values()) {
-                if (pt.produces(key)) {
-                    known = true;
-                    break;
-                }
-            }
-            if (known) continue;
-            for (var pattern : cs.getCraftingFor(key)) {
-                jt.track(pattern);
-                break;
-            }
-        }
     }
 
     /** Before a pattern has ever been pushed we can still show where it *would* go. */
