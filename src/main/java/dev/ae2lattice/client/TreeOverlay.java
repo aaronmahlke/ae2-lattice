@@ -600,9 +600,10 @@ public final class TreeOverlay {
         } else if (ks != null && ks.stored() > 0) {
             lines.add(fmt(n.key, ks.stored()) + " ready");
         }
-        long inMachines = s != null ? s.inMachines() : ks != null ? ks.active() : 0;
+        long inMachines = model.inMachines(n);
         var problem = model.hasProblem(s) ? s.problem() : null;
         if (problem != null) lines.add("§4" + problemText(problem));
+        else if (inMachines < 0) lines.add("§6In machine: unknown");
         else if (inMachines > 0 && st == Status.QUEUED) lines.add("§6" + fmt(n.key, inMachines) + " queued");
         else if (inMachines > 0) lines.add("§2" + fmt(n.key, inMachines) + " in machine");
         // Measured fact for machines we can't read: how long since anything came back.
@@ -610,7 +611,8 @@ public final class TreeOverlay {
                 && s.sinceOutputTicks() >= 600) {
             lines.add("§6No output for " + fmtDuration(s.sinceOutputTicks() * 50L));
         }
-        if (ks != null && ks.pending() > 0) lines.add("§6" + fmt(n.key, ks.pending()) + " to do");
+        long pending = model.pendingOutput(n);
+        if (pending > 0) lines.add("§6" + fmt(n.key, pending) + " to do");
         if (lines.isEmpty()) {
             if (!n.isLeaf()) lines.add("§8✔ Done");
             // Nothing of this item is in the CPU, in machines or scheduled. Say what that actually means:
@@ -854,9 +856,15 @@ public final class TreeOverlay {
         var ks = model.keys.get(n.key);
         if (ks != null) {
             if (ks.stored() > 0) out.add(Component.literal(fmt(n.key, ks.stored()) + " ready").withStyle(ChatFormatting.GRAY));
-            if (ks.active() > 0) out.add(Component.literal(fmt(n.key, ks.active()) + " in machine").withStyle(ChatFormatting.GREEN));
-            if (ks.pending() > 0) out.add(Component.literal(fmt(n.key, ks.pending()) + " to do").withStyle(ChatFormatting.GOLD));
         }
+        long inMachines = model.inMachines(n);
+        if (inMachines > 0) out.add(Component.literal(fmt(n.key, inMachines) + " in machine").withStyle(ChatFormatting.GREEN));
+        else if (inMachines < 0) {
+            out.add(Component.literal("In machine: unknown (recipe history unavailable)")
+                    .withStyle(ChatFormatting.GOLD));
+        }
+        long pending = model.pendingOutput(n);
+        if (pending > 0) out.add(Component.literal(fmt(n.key, pending) + " to do").withStyle(ChatFormatting.GOLD));
         var s = model.state(n);
         if (s != null) {
             if (s.servedBy() != null) {
@@ -871,6 +879,8 @@ public final class TreeOverlay {
                     out.add(Component.literal("⚠ ").append(m.name()).append(": " + problemText(m)).withStyle(ChatFormatting.RED));
                 }
             }
+        } else if (n.isLeaf() && inMachines > 0) {
+            out.add(Component.literal("CPU item total; no recorded recipe").withStyle(ChatFormatting.DARK_GRAY));
         } else if (n.isLeaf() && n != model.root) {
             out.add(Component.literal("Raw material, pulled from ME storage").withStyle(ChatFormatting.DARK_GRAY));
         }

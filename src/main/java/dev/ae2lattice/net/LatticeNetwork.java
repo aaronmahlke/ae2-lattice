@@ -16,15 +16,19 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 public final class LatticeNetwork {
-    /** Bump whenever packet contents change, so mismatched client/server versions are caught on join. */
-    private static final String PROTOCOL = "9";
-
     /** Optional on both sides: clients without Lattice can join servers with it and vice versa. */
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Lattice.MOD_ID, "main"),
-            () -> PROTOCOL,
-            NetworkRegistry.acceptMissingOr(PROTOCOL),
-            NetworkRegistry.acceptMissingOr(PROTOCOL));
+            () -> NetworkCompatibility.BASE_VERSION,
+            NetworkCompatibility.ACCEPT_BASE,
+            NetworkCompatibility.ACCEPT_BASE);
+
+    /** Presence-only capability: this peer understands -1 as an unknown per-recipe count. No packets. */
+    private static final SimpleChannel UNKNOWN_COUNTS_CHANNEL = NetworkRegistry.newSimpleChannel(
+            new ResourceLocation(Lattice.MOD_ID, "unknown_counts"),
+            () -> NetworkCompatibility.UNKNOWN_COUNTS_VERSION,
+            NetworkCompatibility.ACCEPT_UNKNOWN_COUNTS,
+            NetworkCompatibility.ACCEPT_UNKNOWN_COUNTS);
 
     public static void register() {
         CHANNEL.messageBuilder(SubscribePacket.class, 0, NetworkDirection.PLAY_TO_SERVER)
@@ -39,8 +43,18 @@ public final class LatticeNetwork {
                 .add();
     }
 
+    public static boolean clientHasLattice(ServerPlayer player) {
+        return CHANNEL.isRemotePresent(player.connection.connection);
+    }
+
+    public static boolean clientSupportsUnknownCounts(ServerPlayer player) {
+        return UNKNOWN_COUNTS_CHANNEL.isRemotePresent(player.connection.connection);
+    }
+
     public static void sendTo(ServerPlayer player, SnapshotData data) {
-        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new SnapshotPacket(data));
+        if (clientHasLattice(player)) {
+            CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new SnapshotPacket(data));
+        }
     }
 
     // ---------------------------------------------------------------------------------------------

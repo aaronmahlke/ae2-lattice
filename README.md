@@ -30,8 +30,17 @@ connects, which machine is working on it, and what that machine is actually doin
 
 ## Read-only
 
-Lattice never changes anything: no items are created, moved or removed, and no machine is touched. It only
-observes what AE2 is doing and reads machine state. The only action button is **Cancel**, which is AE2's own cancel.
+Lattice observes what AE2 is doing and reads machine state: no items are created, moved or removed, and no
+machine is controlled. It saves its own recipe tracking metadata alongside the crafting CPU's saved data.
+The only action button is **Cancel**, which is AE2's own cancel.
+
+Recipe cards count outstanding outputs separately for each pattern. AE2 does not identify which recipe or
+machine returned an item, so identical outputs are credited to the earliest outstanding dispatch for that
+item. These counts describe outstanding work, not proof of which physical machine finished first.
+If a job was already running before this tracking was installed, missing recipe history is shown as
+**unknown** until those untracked outputs return; item-only nodes still show AE2's combined item totals.
+The server and clients can be updated independently. Updating both gives the corrected counts in both
+cards and tooltips. Clients without Lattice can still join.
 
 ## Requirements
 
@@ -41,8 +50,22 @@ observes what AE2 is doing and reads machine state. The only action button is **
 
 ## Install
 
-Put the jar in the `mods` folder of **the server and every client**. Versions must match - a mismatch is
-reported when joining. In singleplayer, just install it on the client.
+Put the jar in the **server's** `mods` folder. Installing Lattice on clients is **optional**:
+
+- Clients with Lattice can use the tree view and receive live crafting and machine data from the server.
+- Clients without Lattice can join normally and use AE2's standard crafting status screen.
+- A client with Lattice can also join a server without it, but the tree view needs Lattice on the server
+  to receive data.
+
+The builds produced in this fork (`1.0.0`, `1.0.0-client-fix`, and count-fix) share the same base protocol (9); matching mod
+versions are not required. A newer server accepts older clients, and a newer client accepts older
+servers. Features are enabled only when supported by the other side. Older clients retain their own
+tooltip/status behaviour and receive the legacy combined item total when per-recipe history is unknown.
+Newer clients show **unknown** instead. Per-recipe counts with known history work on older clients too.
+Unrelated upstream builds using a different wire protocol are not covered by this compatibility guarantee.
+
+In singleplayer, just install it on the client. AE2 and the modpack's other required mods are still needed
+as usual.
 
 ## Config
 

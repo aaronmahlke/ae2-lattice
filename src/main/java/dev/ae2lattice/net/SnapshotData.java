@@ -163,7 +163,7 @@ public final class SnapshotData {
         /** True if this machine's current work is this step's (known), or unknown but plausible. */
         public boolean workingOnThisStep(long stepInMachines) {
             return switch (target) {
-                case THIS_STEP -> true;
+                case THIS_STEP -> stepInMachines != 0;
                 case OTHER -> false;
                 case UNKNOWN -> stepInMachines > 0;
             };
@@ -172,7 +172,7 @@ public final class SnapshotData {
 
     /**
      * @param remainingRuns      runs AE2 still has to push (AE2's own task list)
-     * @param inMachines         output units AE2 is waiting on from machines (AE2's own "waiting for" list)
+     * @param inMachines         outstanding output units attributed to this recipe; -1 if prior history is unknown
      * @param sinceOutputTicks   ticks since this step last got output back while something was out (measured)
      */
     /**
@@ -181,6 +181,13 @@ public final class SnapshotData {
      */
     public record PatternState(int id, long remainingRuns, long inMachines, int sinceOutputTicks,
             List<MachineInfo> machines, @Nullable Component servedBy) {
+        /** Older clients expect a nonnegative item count, so retain their old total when history is missing. */
+        public PatternState forClient(boolean supportsUnknownCounts, long legacyItemTotal) {
+            if (inMachines >= 0 || supportsUnknownCounts) return this;
+            return new PatternState(id, remainingRuns, Math.max(0, legacyItemTotal), sinceOutputTicks,
+                    machines, servedBy);
+        }
+
         void write(FriendlyByteBuf b) {
             b.writeVarInt(id);
             b.writeVarLong(remainingRuns);

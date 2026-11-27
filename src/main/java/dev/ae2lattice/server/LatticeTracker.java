@@ -11,9 +11,12 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import dev.ae2lattice.mixin.CraftingCpuLogicAccessor;
+import dev.ae2lattice.mixin.ExecutingCraftingJobAccessor;
+import net.minecraft.nbt.CompoundTag;
 
 /** Entry point for the mixin hooks. Server thread only. */
 public final class LatticeTracker {
+    private static final String TRACKING_TAG = "ae2lattice:tracking";
     private static final Map<CraftingCPUCluster, JobTrack> TRACKS = new WeakHashMap<>();
 
     @Nullable
@@ -27,6 +30,9 @@ public final class LatticeTracker {
         if (jt == null || jt.job.get() != job) {
             jt = new JobTrack(job);
             TRACKS.put(cpu, jt);
+            var access = (ExecutingCraftingJobAccessor) (Object) job;
+            for (var pattern : access.ae2lattice$getTasks().keySet()) jt.track(pattern);
+            jt.reconcile(access.ae2lattice$getWaitingFor().list);
         }
         return jt;
     }
@@ -39,6 +45,25 @@ public final class LatticeTracker {
     public static void onReturn(CraftingCPUCluster cpu, AEKey what, long amount) {
         var jt = get(cpu);
         if (jt != null) jt.onReturn(what, amount);
+    }
+
+    public static void save(CraftingCPUCluster cpu, CompoundTag data) {
+        data.remove(TRACKING_TAG);
+        var jt = get(cpu);
+        if (jt == null) return;
+        var job = jt.job.get();
+        if (job == null) return;
+        jt.reconcile(((ExecutingCraftingJobAccessor) (Object) job).ae2lattice$getWaitingFor().list);
+        data.put(TRACKING_TAG, jt.writeTag());
+    }
+
+    public static void load(CraftingCPUCluster cpu, CompoundTag data) {
+        TRACKS.remove(cpu);
+        var jt = get(cpu);
+        if (jt == null) return;
+        jt.readTag(data.getCompound(TRACKING_TAG), cpu.getLevel());
+        var job = jt.job.get();
+        if (job != null) jt.reconcile(((ExecutingCraftingJobAccessor) (Object) job).ae2lattice$getWaitingFor().list);
     }
 
     /** What the last job on a CPU ended with, as reported by AE2 at the moment it finished. */

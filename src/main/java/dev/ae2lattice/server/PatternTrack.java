@@ -1,15 +1,11 @@
 package dev.ae2lattice.server;
 
 import java.lang.ref.WeakReference;
-import java.util.ArrayDeque;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
-import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -18,32 +14,16 @@ import net.minecraft.world.level.Level;
 
 /**
  * What Lattice has observed about one pattern in one job: which machines it went to, and when output last came
- * back. The actual state (in machines / scheduled / stored) always comes from AE2, and machine state from the
- * machine itself.
+ * back. Outstanding outputs are attributed by JobTrack; scheduled/stored counts come from AE2 and machine
+ * state from the machine itself.
  */
 public final class PatternTrack {
     public final int id;
     public final IPatternDetails details;
-    /** Oldest first. Used to attribute returned items to the right pattern (for animations). */
-    final ArrayDeque<InFlight> inflight = new ArrayDeque<>();
     final Map<String, MachineSlot> machines = new LinkedHashMap<>();
     long lastScanTick = Long.MIN_VALUE / 2;
     /** Last time output came back (or when the current wait started). Measured, not estimated. */
     long lastOutputTick;
-
-    static final class InFlight {
-        final long tick;
-        final Map<AEKey, Long> remaining = new HashMap<>();
-
-        InFlight(long tick) {
-            this.tick = tick;
-        }
-
-        boolean done() {
-            for (long v : remaining.values()) if (v > 0) return false;
-            return true;
-        }
-    }
 
     static final class MachineSlot {
         final BlockPos pos;
@@ -67,20 +47,6 @@ public final class PatternTrack {
         this.id = id;
         this.details = details;
         this.lastOutputTick = now;
-    }
-
-    boolean produces(AEKey key) {
-        for (GenericStack o : details.getOutputs()) if (o != null && o.what().equals(key)) return true;
-        return false;
-    }
-
-    void pushed(long now) {
-        var f = new InFlight(now);
-        for (GenericStack o : details.getOutputs()) {
-            if (o != null) f.remaining.merge(o.what(), o.amount(), Long::sum);
-        }
-        inflight.addLast(f);
-        while (inflight.size() > 4096) inflight.pollFirst();
     }
 
     void returned(long now) {

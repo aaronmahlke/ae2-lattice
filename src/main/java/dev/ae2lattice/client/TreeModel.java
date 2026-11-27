@@ -166,12 +166,27 @@ public final class TreeModel {
             }
         }
 
+        // A job started before tracking was installed may have outputs with no recoverable recipe.
+        // Keep those visible as item totals instead of inventing a producing pattern.
+        if (last != null) for (var key : last.keys) {
+            if (key.active() > 0 && !producer.containsKey(key.key())) {
+                leaves.computeIfAbsent(key.key(), k -> {
+                    var leaf = new Node(k, -1);
+                    nodes.add(leaf);
+                    return leaf;
+                });
+            }
+        }
+
         root = null;
         if (last != null && last.finalOutput != null) {
             root = producer.get(last.finalOutput.what());
             if (root == null) {
-                root = new Node(last.finalOutput.what(), -1);
-                nodes.add(root);
+                root = leaves.computeIfAbsent(last.finalOutput.what(), k -> {
+                    var leaf = new Node(k, -1);
+                    nodes.add(leaf);
+                    return leaf;
+                });
             }
         }
         layout();
@@ -269,7 +284,7 @@ public final class TreeModel {
         var s = states.get(n.patternId);
         if (hasProblem(s)) return Status.STALLED;
         if (s != null && s.inMachines() > 0 && isQueued(s)) return Status.QUEUED;
-        if ((s != null && s.inMachines() > 0) || (ks != null && ks.active() > 0)) return Status.CRAFTING;
+        if (s != null && s.inMachines() != 0) return Status.CRAFTING;
         if (s != null && s.remainingRuns() > 0) return Status.SCHEDULED;
         if (ks != null && ks.stored() > 0) return Status.AVAILABLE;
         return Status.DONE;
@@ -280,6 +295,33 @@ public final class TreeModel {
         return n.isLeaf() ? null : states.get(n.patternId);
     }
 
+    /** Recipe-specific count from the server, or -1 if its pre-tracking history is unavailable. */
+    public long inMachines(Node n) {
+        if (n.isLeaf()) {
+            var ks = keys.get(n.key);
+            return ks == null ? 0 : ks.active();
+        }
+        var s = state(n);
+        return s == null ? 0 : s.inMachines();
+    }
+
+    /** Output units still to dispatch for this recipe; leaves use the CPU's item totals. */
+    public long pendingOutput(Node n) {
+        if (n.isLeaf()) {
+            var ks = keys.get(n.key);
+            return ks == null ? 0 : ks.pending();
+        }
+        var pattern = patterns.get(n.patternId);
+        var s = state(n);
+        if (pattern == null || s == null) return 0;
+        // Multiple recipes can produce the same item, so its CPU-wide pending count is not this step's.
+        long perRun = 0;
+        for (var output : pattern.outputs()) {
+            if (n.key.equals(output.what())) perRun += output.amount();
+        }
+        return perRun * s.remainingRuns();
+    }
+
     public long remainingNeed(Edge e) {
         var s = state(e.to);
         return s == null ? 0 : e.perRun * s.remainingRuns();
@@ -288,7 +330,7 @@ public final class TreeModel {
     /** An edge is "live" while the consuming step still has work scheduled or out in machines. */
     public boolean edgeLive(Edge e) {
         var s = state(e.to);
-        return s != null && (s.remainingRuns() > 0 || s.inMachines() > 0);
+        return s != null && (s.remainingRuns() > 0 || s.inMachines() != 0);
     }
 
     /** For raw materials: does a step that uses it still have runs AE2 hasn't handed out yet? */
@@ -304,7 +346,7 @@ public final class TreeModel {
     public boolean consumersStillWorking(Node leaf) {
         for (var e : leaf.out) {
             var s = state(e.to);
-            if (s != null && s.inMachines() > 0) return true;
+            if (s != null && s.inMachines() != 0) return true;
         }
         return false;
     }
@@ -325,7 +367,7 @@ public final class TreeModel {
 
     /** A step has a problem only if one of its machines says so AND the step still has work. */
     public boolean hasProblem(@Nullable PatternState s) {
-        return s != null && (s.inMachines() > 0 || s.remainingRuns() > 0) && s.problem() != null;
+        return s != null && (s.inMachines() != 0 || s.remainingRuns() > 0) && s.problem() != null;
     }
 
     public boolean anyProblem() {

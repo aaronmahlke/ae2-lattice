@@ -61,6 +61,9 @@ dependencies {
     compileOnly fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
     // optional: only used to tell EMI to get out of the way while the tree is open
     compileOnly fg.deobf("dev.emi:emi-forge:1.1.24+1.20.1:api")
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
 }
 
 tasks.named('processResources', ProcessResources).configure {
@@ -113,4 +116,9 @@ tasks.named('modrinth') { dependsOn 'reobfJar' }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+tasks.named('test', Test).configure {
+    workingDir = layout.buildDirectory.dir('test-run').get().asFile
+    doFirst { workingDir.mkdirs() }
 }

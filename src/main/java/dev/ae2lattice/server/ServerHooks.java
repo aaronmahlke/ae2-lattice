@@ -26,10 +26,12 @@ public final class ServerHooks {
 
     static final class Subscription {
         final String playerName;
+        final boolean supportsUnknownCounts;
         String lastLogged = "";
 
-        Subscription(String playerName) {
+        Subscription(String playerName, boolean supportsUnknownCounts) {
             this.playerName = playerName;
+            this.supportsUnknownCounts = supportsUnknownCounts;
         }
 
         /** Logs only when the state changes, so this never spams. */
@@ -52,8 +54,9 @@ public final class ServerHooks {
     }
 
     public static void setSubscribed(ServerPlayer player, boolean on) {
-        if (on) {
-            SUBS.put(player.getUUID(), new Subscription(player.getGameProfile().getName()));
+        if (on && LatticeNetwork.clientHasLattice(player)) {
+            SUBS.put(player.getUUID(), new Subscription(player.getGameProfile().getName(),
+                    LatticeNetwork.clientSupportsUnknownCounts(player)));
             Lattice.LOG.debug("Lattice: {} opened the tree view (menu: {})", player.getGameProfile().getName(),
                     player.containerMenu.getClass().getSimpleName());
         } else {
