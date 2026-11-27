@@ -52,7 +52,7 @@ public final class ServerHooks {
     }
 
     public static void setSubscribed(ServerPlayer player, boolean on) {
-        if (on) {
+        if (on && LatticeNetwork.clientHasLattice(player)) {
             SUBS.put(player.getUUID(), new Subscription(player.getGameProfile().getName()));
             Lattice.LOG.debug("Lattice: {} opened the tree view (menu: {})", player.getGameProfile().getName(),
                     player.containerMenu.getClass().getSimpleName());

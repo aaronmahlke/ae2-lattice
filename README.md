@@ -41,8 +41,16 @@ observes what AE2 is doing and reads machine state. The only action button is **
 
 ## Install
 
-Put the jar in the `mods` folder of **the server and every client**. Versions must match - a mismatch is
-reported when joining. In singleplayer, just install it on the client.
+Put the jar in the **server's** `mods` folder. Installing Lattice on clients is **optional**:
+
+- Clients with Lattice can use the tree view and receive live crafting and machine data from the server.
+- Clients without Lattice can join normally and use AE2's standard crafting status screen.
+- A client with Lattice can also join a server without it, but the tree view needs Lattice on the server
+  to receive data.
+
+When both sides have Lattice, their network protocol versions must match; an incompatible protocol is
+reported when joining. In singleplayer, just install it on the client. AE2 and the modpack's other
+required mods are still needed as usual.
 
 ## Config
 

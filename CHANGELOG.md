@@ -1,3 +1,9 @@
+## Unreleased
+
+- Advertise Lattice as optional for clients in Forge's server compatibility display.
+- Only accept tree subscriptions and send snapshots for clients that have the Lattice network channel.
+- Document optional client installation and the server requirement for live tree data.
+
 ## 1.0.0
 
 First public release.

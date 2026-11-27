@@ -11,6 +11,8 @@ authors="${mod_authors}"
 displayURL="${mod_url}"
 logoFile="lattice_logo.png"
 description='''${mod_description}'''
+# Clients may omit Lattice; the network channel checks protocol compatibility when both sides have it.
+displayTest="IGNORE_SERVER_VERSION"
 
 [[dependencies.${mod_id}]]
     modId="forge"

@@ -39,8 +39,14 @@ public final class LatticeNetwork {
                 .add();
     }
 
+    public static boolean clientHasLattice(ServerPlayer player) {
+        return CHANNEL.isRemotePresent(player.connection.connection);
+    }
+
     public static void sendTo(ServerPlayer player, SnapshotData data) {
-        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new SnapshotPacket(data));
+        if (clientHasLattice(player)) {
+            CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new SnapshotPacket(data));
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
