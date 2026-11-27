@@ -610,7 +610,8 @@ public final class TreeOverlay {
                 && s.sinceOutputTicks() >= 600) {
             lines.add("§6No output for " + fmtDuration(s.sinceOutputTicks() * 50L));
         }
-        if (ks != null && ks.pending() > 0) lines.add("§6" + fmt(n.key, ks.pending()) + " to do");
+        long pending = model.pendingOutput(n);
+        if (pending > 0) lines.add("§6" + fmt(n.key, pending) + " to do");
         if (lines.isEmpty()) {
             if (!n.isLeaf()) lines.add("§8✔ Done");
             // Nothing of this item is in the CPU, in machines or scheduled. Say what that actually means:
@@ -855,8 +856,9 @@ public final class TreeOverlay {
         if (ks != null) {
             if (ks.stored() > 0) out.add(Component.literal(fmt(n.key, ks.stored()) + " ready").withStyle(ChatFormatting.GRAY));
             if (ks.active() > 0) out.add(Component.literal(fmt(n.key, ks.active()) + " in machine").withStyle(ChatFormatting.GREEN));
-            if (ks.pending() > 0) out.add(Component.literal(fmt(n.key, ks.pending()) + " to do").withStyle(ChatFormatting.GOLD));
         }
+        long pending = model.pendingOutput(n);
+        if (pending > 0) out.add(Component.literal(fmt(n.key, pending) + " to do").withStyle(ChatFormatting.GOLD));
         var s = model.state(n);
         if (s != null) {
             if (s.servedBy() != null) {

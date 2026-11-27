@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Fix recipe cards and tooltips sharing "to do" counts when multiple recipes produce the same item.
+  Counts now use each recipe's remaining runs and output amounts; only a client update is needed.
 - Advertise Lattice as optional for clients in Forge's server compatibility display.
 - Only accept tree subscriptions and send snapshots for clients that have the Lattice network channel.
 - Document optional client installation and the server requirement for live tree data.

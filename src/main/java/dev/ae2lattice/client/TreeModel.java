@@ -280,6 +280,23 @@ public final class TreeModel {
         return n.isLeaf() ? null : states.get(n.patternId);
     }
 
+    /** Output units still to dispatch for this recipe; leaves use the CPU's item totals. */
+    public long pendingOutput(Node n) {
+        if (n.isLeaf()) {
+            var ks = keys.get(n.key);
+            return ks == null ? 0 : ks.pending();
+        }
+        var pattern = patterns.get(n.patternId);
+        var s = state(n);
+        if (pattern == null || s == null) return 0;
+        // Multiple recipes can produce the same item, so its CPU-wide pending count is not this step's.
+        long perRun = 0;
+        for (var output : pattern.outputs()) {
+            if (n.key.equals(output.what())) perRun += output.amount();
+        }
+        return perRun * s.remainingRuns();
+    }
+
     public long remainingNeed(Edge e) {
         var s = state(e.to);
         return s == null ? 0 : e.perRun * s.remainingRuns();
